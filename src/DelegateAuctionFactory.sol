@@ -23,15 +23,24 @@ contract PropAuctionFactory {
     /// @param _erc721VotesToken The token address used to create proposals with
     /// @param _erc721VotesTokenIds The token IDs to hold in escrow (should be higher than proposalThreshold for the governor contract)
     /// @param _governor The Governor contract to create proposals on
+    /// @param _duration The duration to run the auction for
+    /// @param _reservePrice The reserve price of the auction
     function deployPropAuction(
         address _erc721VotesToken,
         uint256[] memory _erc721VotesTokenIds,
-        address _governor
+        address _governor,
+        uint40 _duration,
+        uint256 _reservePrice
     ) external returns (address, address) {
         address _escrow = escrowImplemenation.clone();
         address _auction = auctionImplementation.clone();
 
-        IDelegateAuction(_auction).initialize();
+        IDelegateAuction(_auction).initialize(
+            msg.sender,
+            _escrow,
+            _duration,
+            _reservePrice
+        );
         IDelegateEscrow(_escrow).initialize(
             _governor,
             _erc721VotesToken,

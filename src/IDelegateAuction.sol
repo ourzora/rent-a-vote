@@ -4,18 +4,6 @@ pragma solidity ^0.8.16;
 import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
 
 interface IDelegateAuction {
-    /// @notice The settings for the auction
-    /// @param duration The time duration of each auction
-    /// @param timeBuffer The minimum time to place a bid
-    /// @param minBidIncrement The minimum percentage an incoming bid must raise the highest bid
-    /// @param reservePrice The reserve price of each auction
-    struct AuctionSettings {
-        uint40 duration;
-        uint40 timeBuffer;
-        uint8 minBidIncrement;
-        uint256 reservePrice;
-    }
-
     /// @notice The auction storage layout
     /// @param auctionId The auction id
     /// @param highestBid The highest amount of ETH raised
@@ -24,7 +12,6 @@ interface IDelegateAuction {
     /// @param endTime The timestamp the auction ends
     /// @param settled If the auction has been settled
     struct Auction {
-        uint256 auctionId;
         uint256 highestBid;
         address highestBidder;
         uint40 startTime;
@@ -33,18 +20,43 @@ interface IDelegateAuction {
     }
 
     error ONLY_OWNER();
+    error ONLY_PENDING_OWNER();
+    error AUCTION_OVER();
+    error RESERVE_PRICE_NOT_MET();
+    error MIN_BID_NOT_MET();
+    error FAILING_WETH_TRANSFER();
+    error AUCTION_SETTLED();
+    error AUCTION_NOT_STARTED();
+    error AUCTION_ACTIVE();
+    error AUCTION_PERMANENTLY_CLOSED();
+    error INSOLVENT();
 
-    function initialize() external;
+    event AuctionCreated(uint40 startTime, uint40 endTime);
 
-    function createBid(uint256 auctionId) external payable;
+    event AuctionSettled(address highestBidder, uint256 highestBid);
+
+    event AuctionShutdown();
+
+    event NewOwner(address newOwner);
+
+    function initialize(
+        address owner,
+        address escrow,
+        uint40 duration,
+        uint256 reservePrice
+    ) external;
+
+    function createBid() external payable;
 
     function settleAuction() external;
 
-    function selfDestruct() external;
+    function createAuction() external payable;
 
-    function transferOwnership() external;
+    function shutdown() external;
 
-    function safeTransferOwnership() external;
+    function transferOwnership(address newOwner) external;
+
+    function safeTransferOwnership(address newOwner) external;
 
     function acceptOwnershipTransfer() external;
 }

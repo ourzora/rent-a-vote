@@ -37,6 +37,20 @@ contract DelegateEscrow is Initializable, IDelegateEscrow {
 
     function setAuctionActivity(bool _active) external onlyAuction {
         auctionActive = _active;
+
+        emit AuctionActivitySet(_active);
+    }
+
+    function setDelegate(address _newDelegate) external onlyAuction {
+        currentDelegate = _newDelegate;
+
+        emit NewDelegate(_newDelegate);
+    }
+
+    function setOwner(address _newOwner) external onlyAuction {
+        owner = _newOwner;
+
+        emit NewOwner(_newOwner);
     }
 
     function withdraw(uint256 _tokenId, address _to) external {

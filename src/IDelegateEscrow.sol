@@ -17,6 +17,11 @@ interface IDelegateEscrow {
         bytes cd
     );
 
+    event NewDelegate(address delegate);
+    event NewOwner(address owner);
+
+    event AuctionActivitySet(bool active);
+
     function initialize(
         address _governor,
         address _token,
@@ -27,6 +32,10 @@ interface IDelegateEscrow {
     function withdraw(uint256 tokenId, address to) external;
 
     function setAuctionActivity(bool active) external;
+
+    function setDelegate(address newDelegate) external;
+
+    function setOwner(address newOwner) external;
 
     function executeGovernanceTransaction(bytes calldata) external payable;
 }
