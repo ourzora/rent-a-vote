@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "../src/PropAuctionFactory.sol";
+import "../src/DelegateAuctionFactory.sol";
 
-contract PropAuctionFactoryTest is Test {
+contract DelegateAuctionFactoryTest is Test {
     function setUp() public {}
 
     function testIncrement() public {}
