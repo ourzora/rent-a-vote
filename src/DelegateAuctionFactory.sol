@@ -6,7 +6,7 @@ import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IDelegateEscrow} from "./IDelegateEscrow.sol";
 import {IDelegateAuction} from "./IDelegateAuction.sol";
 
-contract PropAuctionFactory {
+contract DelegateAuctionFactory {
     using Clones for address;
 
     address public immutable escrowImplemenation;
