@@ -2,9 +2,16 @@
 pragma solidity 0.8.16;
 
 contract MockGovernor {
+    bool public hasVoted;
+    bool public hasProposed;
+
     constructor() {}
 
-    function vote() public {}
+    function vote() public {
+        hasVoted = true;
+    }
 
-    function propose() public {}
+    function propose() public {
+        hasProposed = true;
+    }
 }

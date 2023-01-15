@@ -28,13 +28,14 @@ contract DelegateAuctionFactoryTest is Test {
             address(escrowImplementation),
             address(auctionImplementation)
         );
+        governor = new MockGovernor();
         token = new MockERC721();
         token.mint(address(this), 1);
         token.mint(address(this), 2);
         token.mint(address(this), 3);
     }
 
-    function testDeployPropAuction(uint40 _duration, uint256 _reservePrice)
+    function test_DeployPropAuction(uint40 _duration, uint256 _reservePrice)
         public
     {
         uint256[] memory _tokenIds = new uint256[](3);
