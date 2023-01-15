@@ -38,6 +38,7 @@ contract DelegateAuctionFactoryTest is Test {
     function test_DeployPropAuction(uint40 _duration, uint256 _reservePrice)
         public
     {
+        vm.assume(_duration > 15 minutes && _duration < 365 days);
         uint256[] memory _tokenIds = new uint256[](3);
         _tokenIds[0] = 1;
         _tokenIds[1] = 2;

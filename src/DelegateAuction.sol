@@ -12,6 +12,9 @@ interface IWETH {
 }
 
 contract DelegateAuction is Initializable, IDelegateAuction {
+    uint40 internal immutable MIN_DURATION = 15 minutes;
+    uint40 internal immutable MAX_DURATION = 365 days; // sane maximum imo
+
     /// @notice Iniital time buffer for auction bids
     uint40 public immutable timeBuffer = 5 minutes;
 
@@ -20,26 +23,29 @@ contract DelegateAuction is Initializable, IDelegateAuction {
 
     address public immutable WETH;
 
-    // @notice The reserve price of the auction
+    /// @notice The reserve price of the auction
     uint256 public reservePrice;
 
     /// @notice The duration of feach auction
     uint256 public duration;
 
-    // @notice the owner of the auction
+    /// @notice the owner of the auction
     address public owner;
 
-    // @notice the pending owner of the auction
+    /// @notice the pending owner of the auction
     address public pendingOwner;
 
-    // @notice the escrow contract of the auction
+    /// @notice the escrow contract of the auction
     address public escrow;
 
-    // @notice the current auction's details
+    /// @notice the current auction's details
     Auction public auction;
 
-    // @notice shutdown start time - used to ensure shutdown does not lock any funds.
-    bool private isShutdown;
+    /// @notice whether or not a shutdown is queued
+    bool public isShutdownQueued;
+
+    /// @notice shutdown start time - used to ensure shutdown does not lock any funds.
+    bool public isShutdown;
 
     modifier onlyOwner() {
         if (msg.sender != owner) {
@@ -71,11 +77,19 @@ contract DelegateAuction is Initializable, IDelegateAuction {
         escrow = _escrow;
         duration = _duration;
         reservePrice = _reservePrice;
+        auction.settled = true;
+
+        if (duration < MIN_DURATION) {
+            revert DURATION_TOO_SMALL();
+        }
+        if (duration > MAX_DURATION) {
+            revert DURATION_TOO_LARGE();
+        }
     }
 
-    /// @notice Create a bid. If the auction hasn't started yet, this also starts the auction.
+    /// @notice Create a bid. If the auction has already ended, call createAuction() instead.
     function createBid() public payable notShutdown {
-        if (auction.startTime != 0 && auction.endTime <= block.timestamp) {
+        if (auction.endTime <= block.timestamp) {
             revert AUCTION_OVER();
         }
 
@@ -116,6 +130,11 @@ contract DelegateAuction is Initializable, IDelegateAuction {
             // Refund the last bidder
             _handleOutgoingTransfer(lastHighestBidder, lastHighestBid);
         }
+
+        auction.highestBid = msg.value;
+        auction.highestBidder = msg.sender;
+
+        emit AuctionBid(msg.sender, msg.value, auction.endTime);
     }
 
     /// @notice Settle a completed auction
@@ -132,18 +151,10 @@ contract DelegateAuction is Initializable, IDelegateAuction {
         createBid();
     }
 
-    /// @notice Forcefully shuts down the auction. Reimburses highest bidder, and opens up escrow contract for withdrawal. This is a one-way operation and cannot be undone.
-    function shutdown() external onlyOwner notShutdown {
-        if (!auction.settled) {
-            // refund the highest bidder
-            _handleOutgoingTransfer(auction.highestBidder, auction.highestBid);
-        }
-
-        IDelegateEscrow(escrow).setAuctionActivity(false);
-
-        isShutdown = true;
-
-        emit AuctionShutdown();
+    /// @notice Queue a shutdown operation, which permanently closes the auction. The shutdown will automatically occur when the current auction settles, or if there is no auction running and the owner calls shutdown.
+    /// @param queue whether or not to queue the shutdown
+    function queueShutdown(bool queue) external onlyOwner notShutdown {
+        isShutdownQueued = queue;
     }
 
     function transferOwnership(address _newOwner) external onlyOwner {
@@ -162,6 +173,14 @@ contract DelegateAuction is Initializable, IDelegateAuction {
         _setOwner(pendingOwner);
     }
 
+    function _shutdown() private {
+        IDelegateEscrow(escrow).setAuctionActivity(false);
+
+        isShutdown = true;
+
+        emit AuctionShutdown();
+    }
+
     function _createAuction() private {
         auction.startTime = uint40(block.timestamp);
         auction.endTime = uint40(block.timestamp + duration);
@@ -174,25 +193,32 @@ contract DelegateAuction is Initializable, IDelegateAuction {
 
     function _settleAuction() private {
         // Get a copy of the current auction
-        Auction memory _auction = auction;
+        Auction storage _auction = auction;
 
         // Ensure the auction wasn't already settled
-        if (_auction.settled) revert AUCTION_SETTLED();
-
-        // Ensure the auction had started
-        if (_auction.startTime == 0) revert AUCTION_NOT_STARTED();
+        if (_auction.settled) {
+            revert AUCTION_SETTLED();
+        }
 
         // Ensure the auction is over
-        if (block.timestamp < _auction.endTime) revert AUCTION_ACTIVE();
+        if (block.timestamp < _auction.endTime) {
+            revert AUCTION_ACTIVE();
+        }
 
         // Mark the auction as settled
         auction.settled = true;
 
-        _handleOutgoingTransfer(owner, auction.highestBid);
-
-        IDelegateEscrow(escrow).setDelegate(auction.highestBidder);
-
-        emit AuctionSettled(auction.highestBidder, auction.highestBid);
+        // If a shutdown is queued, return the funds to the highest bidder and begin shutdown sequence
+        if (isShutdownQueued) {
+            _handleOutgoingTransfer(auction.highestBidder, auction.highestBid);
+            IDelegateEscrow(escrow).setDelegate(owner);
+            _shutdown();
+        } else {
+            // Otherwise, send the funds to the auction host and award the highest bidder their delegate status.
+            _handleOutgoingTransfer(owner, address(this).balance);
+            IDelegateEscrow(escrow).setDelegate(auction.highestBidder);
+            emit AuctionSettled(auction.highestBidder, auction.highestBid);
+        }
     }
 
     function _setOwner(address _newOwner) private {

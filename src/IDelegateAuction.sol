@@ -26,12 +26,16 @@ interface IDelegateAuction {
     error MIN_BID_NOT_MET();
     error FAILING_WETH_TRANSFER();
     error AUCTION_SETTLED();
-    error AUCTION_NOT_STARTED();
     error AUCTION_ACTIVE();
+    error AUCTION_SHUTDOWN_NOT_QUEUED();
     error AUCTION_PERMANENTLY_CLOSED();
     error INSOLVENT();
+    error DURATION_TOO_SMALL();
+    error DURATION_TOO_LARGE();
 
     event AuctionCreated(uint40 startTime, uint40 endTime);
+
+    event AuctionBid(address bidder, uint256 amount, uint40 endTime);
 
     event AuctionSettled(address highestBidder, uint256 highestBid);
 
@@ -52,7 +56,7 @@ interface IDelegateAuction {
 
     function createAuction() external payable;
 
-    function shutdown() external;
+    function queueShutdown(bool queue) external;
 
     function transferOwnership(address newOwner) external;
 
